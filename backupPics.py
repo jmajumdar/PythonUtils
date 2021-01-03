@@ -165,14 +165,14 @@ def preparePlanForExistingFile(source_file_info, dest_file_info) :
 def printPlan(plan, showDetails=True) :
 	if ( showDetails == True ) :
 		print('This is the plan for the set of files:')
+		for file_plan in plan['skips'] :
+			print(f"{file_plan['name']} in folder {file_plan['path']} --> SKIP exists in {file_plan['destPath']}")
 		for file_plan in plan['creates'] :
 			print(f"{file_plan['name']} in folder {file_plan['path']} --> CREATE DIRECTORY in {file_plan['destPath']}")
 		for file_plan in plan['copies'] :
 			print(f"{file_plan['name']} in folder {file_plan['path']} --> COPY FILE into {file_plan['destPath']}")
 		for file_plan in plan['moves'] :
 			print(f"{file_plan['name']} in folder {file_plan['path']} --> MOVE FILE form {file_plan['destPath']} to {file_plan['path']}")
-		for file_plan in plan['skips'] :
-			print(f"{file_plan['name']} in folder {file_plan['path']} --> SKIP exists in {file_plan['destPath']}")
 
 	print(f"TOTAL FILES: {plan['total_count']}")
 	print(f"Skip folders/files: {plan['skip_count']};",
