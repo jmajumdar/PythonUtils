@@ -57,6 +57,7 @@ def visitYear(sourcePath, destPath, options) :
 		sourceDict = buildFileDict(sourcePath + '\\' + year, month)
 		destDict = buildFileDict(destPath + '\\' + year, month)
 		printPlan(preparePlan(sourceDict, destDict), showDetails)
+		printExtras(discoverExtras(sourceDict, destDict), showDetails)
 
 
 # Build the list of files under the directory for the specific month
@@ -179,6 +180,36 @@ def printPlan(plan, showDetails=True) :
 	print("")
 
 
+# Prepare a plan of what to do with files form the source directory
+def discoverExtras(sourceDict, destDict) :
+	extras = []
+	for dest_file, dest_file_info in destDict.items() :
+		source_file_info = sourceDict.get(dest_file)
+
+		# Record all destination files for which there is no corresponding source file
+		if ( source_file_info == None ) :
+			extras.append(prepareExtraFileInfo(dest_file_info))
+	return extras
+
+
+def prepareExtraFileInfo(file_info) :
+	extra_file = {}
+	extra_file['name'] = file_info['name']
+	extra_file['path'] = file_info['path']
+	return extra_file
+
+
+# Print the set of extras that have been found -- files on destination but not on source
+def printExtras(extras, showDetails=True) :
+	if ( showDetails == True ) :
+		print('These are the extra files on the destination:')
+		for extra_file in extras :
+			print(f"{extra_file['name']} in folder {extra_file['path']} --> doesn't exist on source")
+
+	print(f"TOTAL EXTRA FILES: {len(extras)}")
+	print("")
+
+
 #
 # The main entry to this script is here.
 #
@@ -199,5 +230,5 @@ options = getOptions(sys.argv)
 sourcePath="C:\\Users\\Jhumnu\\Pictures\\PicturesByMonths"
 destPath="H:\\My Stuff\\All Pictures\\PicturesByMonths"
 
-# Get the months in the year
+# Process all months in the year or a single month depending on options specified
 visitYear(sourcePath, destPath, options)
