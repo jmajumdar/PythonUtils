@@ -3,17 +3,30 @@ import glob
 import sys
 import getopt
 
-# The function processes the command line arguments and determines the year that we want to process
-def getYearToProcess(argv) :
-	year = ''
 
-	if ( len(argv) < 2 ) :
-		print('Incorrect Arguments >> Usage: backupPics.py <year>')
+# The function processes the command line arguments and determines the various options
+def getOptions(argv) :
+	options = { 'year' : '2020', 'month' : '', 'verbose' : 'False' }
+	usage = 'Usage >> backupPics.py [-h|--help] [-v|--verbose] [--year|-y <year>] [--month|-m <month>]' 
+	try:
+		opts, args = getopt.getopt(argv[1:],"hvy:m:",["year=","month=","help","verbose"])
+	except getopt.GetoptError :
+		print(usage)
 		sys.exit(2)
 
-	year=argv[1]
-	print('Year to process is', year)
-	return year
+	for opt, value in opts:
+		if opt in ('-h', "--help") :
+			print(usage)
+			sys.exit()
+		elif opt in ("-y", "--year") :
+			options['year'] = value
+		elif opt in ("-m", "--month") :
+			options['month'] = value
+		elif opt in ('-v', '--verbose') :
+			options['verbose'] = 'True'
+
+	#print('Execution Options', options)
+	return options
 
 
 # We want to process one month at a time. Get the set of months under the year
@@ -32,12 +45,18 @@ def getMonths(basedir, year) :
 
 
 # Visit all months of the year
-def visitYear(sourcePath, destPath, year) :
-	months = getMonths(sourcePath, year)
+def visitYear(sourcePath, destPath, options) :
+	year = options['year']
+	if ( options['month'] == '' ) :
+		months = getMonths(sourcePath, year)
+	else :
+		months = [ options['month'] ]
+	showDetails = ( options['verbose'] == 'True' )
+	
 	for month in months :
 		sourceDict = buildFileDict(sourcePath + '\\' + year, month)
 		destDict = buildFileDict(destPath + '\\' + year, month)
-		printPlan(preparePlan(sourceDict, destDict), False)
+		printPlan(preparePlan(sourceDict, destDict), showDetails)
 
 
 # Build the list of files under the directory for the specific month
@@ -75,34 +94,34 @@ def printFileDict(prompt, fileDict) :
 
 # Prepare a plan of what to do with files form the source directory
 def preparePlan(sourceDict, destDict) :
-	plan = {}
-	file_plan = {}
-	count_create_dir = count_copy = count_move = count_skip = count_total = 0
-
+	overall_plan = { 'copies':[], 'moves':[], 'creates':[], 'skips':[] }
+	
 	for source_file, source_file_info in sourceDict.items() :
 		dest_file_info = destDict.get(source_file)
 		if ( dest_file_info == None ) :
-			this_plan = file_plan[source_file] = preparePlanForNewFile(source_file_info)
+			appendPlan(preparePlanForNewFile(source_file_info), overall_plan)
 		else :
-			this_plan = file_plan[source_file] = preparePlanForExistingFile(source_file_info, dest_file_info)
+			appendPlan(preparePlanForExistingFile(source_file_info, dest_file_info), overall_plan)
 
-		if ( this_plan['action'] == ACTION_COPY_FILE ) :
-			count_copy = count_copy+1
-		elif ( this_plan['action'] == ACTION_MOVE_FILE ) :
-			count_move = count_move+1
-		elif ( this_plan['action'] == ACTION_CREATE_DIR ) :
-			count_create_dir = count_create_dir+1
-		else :
-			count_skip = count_skip+1
-		count_total = count_total+1
+	overall_plan['copy_count'] = copy_count = len(overall_plan['copies'])
+	overall_plan['move_count'] = move_count = len(overall_plan['moves'])
+	overall_plan['create_count'] = create_count = len(overall_plan['creates'])
+	overall_plan['skip_count'] = skip_count = len(overall_plan['skips'])
+	overall_plan['total_count'] = copy_count+move_count+create_count+skip_count
+	return overall_plan
 
-	plan['skips'] = count_skip
-	plan['copies'] = count_copy
-	plan['moves'] = count_move
-	plan['creates'] = count_create_dir
-	plan['totals'] = count_total
-	plan['file_plan'] = file_plan
-	return plan
+
+# Append paln for the file to the appropriate list
+def appendPlan(file_plan, overall_plan) :
+	if ( file_plan['action'] == ACTION_COPY_FILE ) :
+		overall_plan['copies'].append(file_plan)
+	elif ( file_plan['action'] == ACTION_MOVE_FILE ) :
+		overall_plan['moves'].append(file_plan)
+	elif ( file_plan['action'] == ACTION_CREATE_DIR ) :
+		overall_plan['creates'].append(file_plan)
+	else :
+		overall_plan['skips'].append(file_plan)
+	return overall_plan
 
 
 # Prepare the plan for a single file that doesn't already exist on the destination
@@ -145,20 +164,18 @@ def preparePlanForExistingFile(source_file_info, dest_file_info) :
 def printPlan(plan, showDetails=True) :
 	if ( showDetails == True ) :
 		print('This is the plan for the set of files:')
-		for file_name, file_plan in plan['file_plan'].items() :
-			action = file_plan['action']
-			if ( action == ACTION_COPY_FILE ) :
-				print(f"{file_name} in folder {file_plan['path']} --> COPY FILE into {file_plan['destPath']}")
-			elif ( action == ACTION_CREATE_DIR ):
-				print(f"{file_name} in folder {file_plan['path']} --> CREATE DIRECTORY in {file_plan['destPath']}")
-			elif ( action == ACTION_MOVE_FILE ) :
-				print(f"{file_name} in folder {file_plan['path']} --> MOVE FILE form {file_plan['destPath']} to {file_plan['path']}")
-			else :
-				print(f"{file_name} in folder {file_plan['path']} --> SKIP exists in {file_plan['destPath']}")
+		for file_plan in plan['creates'] :
+			print(f"{file_plan['name']} in folder {file_plan['path']} --> CREATE DIRECTORY in {file_plan['destPath']}")
+		for file_plan in plan['copies'] :
+			print(f"{file_plan['name']} in folder {file_plan['path']} --> COPY FILE into {file_plan['destPath']}")
+		for file_plan in plan['moves'] :
+			print(f"{file_plan['name']} in folder {file_plan['path']} --> MOVE FILE form {file_plan['destPath']} to {file_plan['path']}")
+		for file_plan in plan['skips'] :
+			print(f"{file_plan['name']} in folder {file_plan['path']} --> SKIP exists in {file_plan['destPath']}")
 
-	print(f"TOTAL FILES: {plan['totals']}")
-	print(f"Skip folders/files: {plan['skips']};",
-		  f"Copy files: {plan['copies']}; Move files: {plan['moves']}; Create folders: {plan['creates']};")
+	print(f"TOTAL FILES: {plan['total_count']}")
+	print(f"Skip folders/files: {plan['skip_count']};",
+		  f"Copy files: {plan['copy_count']}; Move files: {plan['move_count']}; Create folders: {plan['create_count']};")
 	print("")
 
 
@@ -176,11 +193,11 @@ ACTION_CREATE_DIR = 2
 ACTION_MOVE_FILE = 3
 ACTION_SKIP = 4
 
-# Get the year to process from the command line
-year = getYearToProcess(sys.argv)
+# Get the options from the command line and collect these into a dictionary
+options = getOptions(sys.argv)
 
 sourcePath="C:\\Users\\Jhumnu\\Pictures\\PicturesByMonths"
 destPath="H:\\My Stuff\\All Pictures\\PicturesByMonths"
 
 # Get the months in the year
-visitYear(sourcePath, destPath, year)
+visitYear(sourcePath, destPath, options)
