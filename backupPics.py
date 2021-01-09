@@ -2,6 +2,24 @@ import os
 import glob
 import sys
 import getopt
+import json
+
+
+# Get the source and destination path from an external file instead of hard-coding
+def getPaths() :
+	paths = {}
+	try :
+		with open("pictures.json", "r") as read_file :
+			paths = json.load(read_file)
+	except FileNotFoundError :
+		print("Unable to find dile pictures.json")
+		sys.exit(2)
+
+	if ( paths.get('sourcePath') == None or paths.get('destPath') == None ) :
+		print("Unable to get the paths to process.")
+		sys.exit(2)
+
+	return paths
 
 
 # The function processes the command line arguments and determines the various options
@@ -161,7 +179,7 @@ def preparePlanForExistingFile(source_file_info, dest_file_info) :
 	return plan
 
 
-# Print the plan that has been prepared
+# Print the plan that has been preparedi58 
 def printPlan(plan, showDetails=True) :
 	if ( showDetails == True ) :
 		print('This is the plan for the set of files:')
@@ -227,8 +245,8 @@ ACTION_SKIP = 4
 # Get the options from the command line and collect these into a dictionary
 options = getOptions(sys.argv)
 
-sourcePath="C:\\Users\\Jhumnu\\Pictures\\PicturesByMonths"
-destPath="H:\\My Stuff\\All Pictures\\PicturesByMonths"
+# Get the paths from an external JSON file
+paths = getPaths()
 
 # Process all months in the year or a single month depending on options specified
-visitYear(sourcePath, destPath, options)
+visitYear(paths['sourcePath'], paths['destPath'], options)
